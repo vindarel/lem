@@ -1,4 +1,4 @@
-(uiop:define-package :squaremenu
+(uiop:define-package :lem/keymenu
     (:use :cl :lem)
   (:documentation "Goal: display a window on top of the others,
   create parameters to display inside it,
@@ -7,25 +7,25 @@
 ;;; After loading this file,
 ;;; create test variables (see define-toggle-command for *a* and *b*).
 
-(in-package :squaremenu)
+(in-package :lem/keymenu)
 
 
-(define-minor-mode squaremenu-mode
+(define-minor-mode keymenu-mode
     (:name "Menu"
-     :keymap *squaremenu-keymap*)
+     :keymap *keymenu-keymap*)
   (setf (not-switchable-buffer-p (current-buffer)) t))
 
-(define-key *squaremenu-keymap* "q" 'squaremenu-quit)
-(define-key *squaremenu-keymap* "C-c C-k" 'squaremenu-quit)
+(define-key *keymenu-keymap* "q" 'keymenu-quit)
+(define-key *keymenu-keymap* "C-c C-k" 'keymenu-quit)
 
 ;; commands
-;; (define-key *squaremenu-keymap* "s" (lambda () (message "pressed s")))
+;; (define-key *keymenu-keymap* "s" (lambda () (message "pressed s")))
 
 ;; quit
-(define-key *squaremenu-keymap* "Return" 'squaremenu-select)
+(define-key *keymenu-keymap* "Return" 'keymenu-select)
 
 ;; navigation
-(define-key *squaremenu-keymap* 'next-line 'squaremenu-next)
+(define-key *keymenu-keymap* 'next-line 'keymenu-next)
 
 
 ;;;
@@ -51,14 +51,14 @@
 (defclass peek-window (floating-window) ())
 
 (defmethod lem-core::%delete-window :before ((window peek-window))
-  (finalize-squaremenu))
+  (finalize-keymenu))
 
 (defmethod compute-window-list ((current-window peek-window))
   (list *peek-window*))
 
 (defvar *is-finalzing* nil)
 
-(defun finalize-squaremenu ()
+(defun finalize-keymenu ()
   (unless *is-finalzing*
     (let ((*is-finalzing* t))
       (finalize-highlight-overlays)
@@ -125,7 +125,7 @@
                                      :use-border t)))
     (list peek-window)))
 
-(defun display (collector &key (minor-mode 'squaremenu-mode))
+(defun display (collector &key (minor-mode 'keymenu-mode))
   (when (boundp '*peek-window*)
     (delete-window *peek-window*))
 
@@ -141,13 +141,13 @@
 
     (funcall minor-mode t)
     ;; aka:
-    ;; (squaremenu-mode t)
+    ;; (keymenu-mode t)
 
     (start-move-point (buffer-point (collector-buffer collector)))
     (print "do display")))
 
-(defun make-squaremenu-buffer (&key (name "*squaremenu*"))
-  "Get or create a buffer of name NAME. By default, use a `*squaremenu*' buffer.
+(defun make-keymenu-buffer (&key (name "*keymenu*"))
+  "Get or create a buffer of name NAME. By default, use a `*keymenu*' buffer.
   This is where we will display legit information (status…)."
   (let ((buffer (make-buffer name
                              :temporary t
@@ -156,22 +156,22 @@
     (setf (variable-value 'line-wrap :buffer buffer) nil)
     buffer))
 
-(defun call-with-collecting-sources (function &key read-only buffer (minor-mode 'squaremenu-mode))
+(defun call-with-collecting-sources (function &key read-only buffer (minor-mode 'keymenu-mode))
   "Initialize variables to display things on a legit buffer.
 
   BUFFER: either :status or :commits-log.
   READ-ONLY: boolean.
-  MINOR-MODE: the minor mode to activate after we displayed things in the buffer. Defaults to the main squaremenu-mode. The mode is activated with:
+  MINOR-MODE: the minor mode to activate after we displayed things in the buffer. Defaults to the main keymenu-mode. The mode is activated with:
 
-    (squaremenu-mode t)
+    (keymenu-mode t)
   or
     (funcall minor-mode t)"
   (let* ((*collector* (make-instance 'collector
                                      :buffer
-                                     (make-squaremenu-buffer
+                                     (make-keymenu-buffer
                                       :name
                                       (case buffer
-                                        (:status "*squaremenu*")
+                                        (:status "*keymenu*")
                                         (:commits-log "*legit-commits-log*")
                                         (t (error "Unknown buffer name to display legit data: ~a" buffer))))))
          (point (buffer-point (collector-buffer *collector*))))
@@ -183,7 +183,7 @@
 
 (defmacro with-collecting-sources ((collector &key (buffer :status)
                                                 (read-only t)
-                                                (minor-mode 'squaremenu-mode))
+                                                (minor-mode 'keymenu-mode))
                                    &body body)
   "Top-level macro that prepares a buffer to print stuff on and activates a minor-mode.
 
@@ -244,10 +244,10 @@
 (define-attribute match-line-attribute
   (t :background :base02))
 
-(defmethod execute :after ((mode squaremenu-mode) command argument)
+(defmethod execute :after ((mode keymenu-mode) command argument)
   "After a command is run in this mode, apply an effect.
 
-  In the case of `squaremenu-mode', it is run after `squaremenu-next',
+  In the case of `keymenu-mode', it is run after `keymenu-next',
   in order to show the file content on the right window.
 
   The method is to subclass for all legit modes."
@@ -262,7 +262,7 @@
                  300)))
 
 
-(define-command squaremenu-select () ()
+(define-command keymenu-select () ()
   "Run the action stored in the :visit-file-function marker. Bound to Enter.
 
   By default, this function works on files:
@@ -275,24 +275,24 @@
   The lambda function needs to return nil or (values)."
   (print "select something"))
 
-(define-command squaremenu-next () ()
+(define-command keymenu-next () ()
   "Find the next line with a :move-marker text property.
 
   After finding it, our :after method of `execute' is run, to apply an effect, showing the new diff on the right."
   (next-move-point (current-point)))
 
-(define-command squaremenu-next-header () ()
+(define-command keymenu-next-header () ()
   (next-header-point (current-point)))
 
-(define-command squaremenu-previous-header () ()
+(define-command keymenu-previous-header () ()
   (previous-header-point (current-point)))
 
-(define-command squaremenu-previous () ()
+(define-command keymenu-previous () ()
   (previous-move-point (current-point)))
 
 (defparameter *menu-parameters* (list 'a :a))
 
-(defun %squaremenu-quit ()
+(defun %keymenu-quit ()
   "Delete the two side windows."
   ;; Shall we delete keybindings?
   (setf (current-window) *parent-window*)
@@ -301,9 +301,9 @@
                       (delete-window *peek-window*)))
    0))
 
-(define-command squaremenu-quit () ()
+(define-command keymenu-quit () ()
   "Quit"
-  (%squaremenu-quit)
+  (%keymenu-quit)
   (message (apply 'format nil "menu values? a is ~s, b is ~s" (%show-debug-values))))
 
 
@@ -333,11 +333,11 @@
   (setf *highlight-overlays* '()))
 
 ;;;
-;;; Now use all of the above to create a top-level squaremenu.
+;;; Now use all of the above to create a top-level keymenu.
 ;;;
 
 (define-command print-text () ()
-  (with-collecting-sources (collector :read-only nil :minor-mode 'squaremenu-mode)
+  (with-collecting-sources (collector :read-only nil :minor-mode 'keymenu-mode)
     (with-appending-source (point)
       (insert-string point "hello a"))))
 
@@ -377,7 +377,7 @@
                   :variable '*b*
                   :keybinding "C-b"
                   :command :toggle
-                  :docstring "Set b too."))
+                   :docstring "Set b too."))
 
 #++
 (define-toggle-defun *my-b-parameter*)
@@ -407,7 +407,7 @@
   "Define a command and a keybinding after this parameter name,
   that toggle this parameter's variable value,
   so that we can toggle the values from the menu with keybindings."
-  (let ((fn-name (alexandria:symbolicate "%SQUAREMENU-TOGGLE-" (str:upcase
+  (let ((fn-name (alexandria:symbolicate "%KEYMENU-TOGGLE-" (str:upcase
                                                                 (parameter-name
                                                                  (eval param))))))
     `(progn
@@ -416,7 +416,7 @@
          ;; re-draw everything.
          (create-menu))
 
-       (define-key *squaremenu-keymap* (parameter-keybinding ,param) ',fn-name)
+       (define-key *keymenu-keymap* (parameter-keybinding ,param) ',fn-name)
        )))
 
 (defun create-menu (&key
@@ -427,7 +427,7 @@
 
   ;; Write content.
   (with-collecting-sources (collector :read-only nil
-                                      :minor-mode 'squaremenu-mode)
+                                      :minor-mode 'keymenu-mode)
     ;; (if we don't specify the minor-mode, the macro arguments's default value will not be found)
     (collector-insert title :header t)
     (when intro
@@ -445,7 +445,7 @@
       (collector-insert (format nil "~&~%~a" outro)))
     ))
 
-(define-key *global-keymap* "C-x m" 'squaremenu-test)
+(define-key *global-keymap* "C-x m" 'keymenu-test)
 
-(define-command squaremenu-test () ()
+(define-command keymenu-test () ()
   (create-menu))
