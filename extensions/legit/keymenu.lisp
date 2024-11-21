@@ -161,11 +161,10 @@
       (setf *parent-window* (current-window))
       (message (format nil "--- set parenth window: ~a" *parent-window*)))
 
+    (uiop:format! t "--- setting *peek-window* and current window to ~a" peek-window)
     (setf *peek-window* peek-window)
 
-    (if (boundp 'peek-window)
-        (setf (current-window) peek-window)
-        (format t "--- display: peek-window is unbound"))
+    (setf (current-window) peek-window)
 
     (funcall minor-mode t)
     ;; aka:
@@ -321,9 +320,8 @@
 (defun %keymenu-quit ()
   "Delete the two side windows."
   ;; Shall we delete keybindings?
-  (if (boundp '*parent-window*)
-    (setf (current-window) *parent-window*)
-    (format t "-- *parent-window* is not bound"))
+  (uiop:format! t "--- quit: setting back current window to ~a" *parent-window*)
+  (setf (current-window) *parent-window*)
   (start-timer
    (make-idle-timer (lambda ()
                       (delete-window *peek-window*)))
