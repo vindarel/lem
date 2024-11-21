@@ -9,6 +9,23 @@
 
 ;;; After loading this file,
 ;;; create test variables (see define-toggle-command for *a* and *b*).
+;;;
+;;; reload legit. See variables in legit-common and at the legit-commit command.
+;;;
+;;; Currently the test fails after a second attempt:
+;;; - run legit C-x g
+;;; - commit: c
+;;; - this opens a new keymenu window on top, with a parameter to toggle (C-a)
+;;; - quit keymenu, commit again: ok
+;;; - quit keymenu, quit legit, recall legit and commit and toggle: crash.
+;;;
+;;; There is a macro mess because I ultimately want to define keybindings
+;;; for our new window on top.
+;;; But could we bypass Lem keybindings, and catch key presses directly?
+;;;
+;;; That way we could also catch "-a" and all sorts of keys that are not
+;;; proper keybindings, I suppose.
+;;;
 
 (in-package :lem/keymenu)
 
