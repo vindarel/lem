@@ -1,0 +1,335 @@
+(uiop:define-package :squaremenu
+    (:use :cl :lem))
+
+(in-package :squaremenu)
+
+
+(define-minor-mode squaremenu-mode
+    (:name "Menu"
+     :keymap *squaremenu-keymap*)
+  (setf (not-switchable-buffer-p (current-buffer)) t))
+
+(define-key *squaremenu-keymap* "q" 'squaremenu-quit)
+(define-key *squaremenu-keymap* "C-c C-k" 'squaremenu-quit)
+
+;; commands
+;; (define-key *squaremenu-keymap* "s" (lambda () (message "pressed s")))
+
+;; quit
+(define-key *squaremenu-keymap* "Return" 'squaremenu-select)
+
+;; navigation
+(define-key *squaremenu-keymap* 'next-line 'squaremenu-next)
+
+
+;;;
+;;; The two windows pane.
+;;;
+(define-attribute filename-attribute
+  (t :foreground :base0D))
+
+(define-attribute highlight
+  (t :background :base0D))
+
+(defvar *collector*)
+
+(defclass collector ()
+  ((buffer :initarg :buffer
+           :reader collector-buffer)
+   (count :initform 0
+          :accessor collector-count)))
+
+(defvar *peek-window*)
+(defvar *parent-window*)
+
+(defclass peek-window (floating-window) ())
+
+(defmethod lem-core::%delete-window :before ((window peek-window))
+  (finalize-squaremenu))
+
+(defmethod compute-window-list ((current-window peek-window))
+  (list *peek-window*))
+
+(defvar *is-finalzing* nil)
+
+(defun finalize-squaremenu ()
+  (unless *is-finalzing*
+    (let ((*is-finalzing* t))
+      (finalize-highlight-overlays)
+      (setf (current-window) *parent-window*)
+      (delete-window *peek-window*))))
+
+(defun set-move-function (start end move-function)
+  (with-point ((end start))
+    (character-offset end 1)
+    (put-text-property start end :move-marker t))
+  (put-text-property start end :move-function move-function))
+
+
+(defun get-move-function (point)
+  (with-point ((point point))
+    (line-start point)
+    (text-property-at point :move-function)))
+
+(defun start-move-point (point)
+  (buffer-start point)
+  (unless (text-property-at point :move-marker)
+    (next-move-point point)))
+
+(defun next-move-point (point)
+  "Find the next point (line) with a marker.
+  This is how we distinguish between simple text, and meaningful text."
+  (when (text-property-at point :move-marker)
+    (next-single-property-change point :move-marker))
+  (next-single-property-change point :move-marker))
+
+(defun previous-move-point (point)
+  (when (text-property-at point :move-marker)
+    (previous-single-property-change point :move-marker))
+  (previous-single-property-change point :move-marker))
+
+(defun next-header-point (point)
+  "Find the next point (line) with a header marker."
+  (when (text-property-at point :header-marker)
+    (next-single-property-change point :header-marker))
+  (next-single-property-change point :header-marker))
+
+(defun previous-header-point (point)
+  "Find the previous point (line) with a header marker."
+  (when (text-property-at point :header-marker)
+    (previous-single-property-change point :header-marker))
+  (previous-single-property-change point :header-marker))
+
+(defparameter *x-margin* 20)
+(defparameter *width* (- (display-width) (* 2 *x-margin*)))
+(defparameter *y-margin* 10)
+(defparameter *height* (- (display-height) (* 2 *y-margin*)))
+
+(defun make-square-window (buffer)
+  (let* ((x-margin 4)
+         (y-margin 2)
+         (width (or *width* (- (floor (display-width) 2) 2 x-margin)))
+         (height (or *height* (- (display-height) 2 (* 2 y-margin))))
+         (peek-window (make-instance 'peek-window
+                                     :buffer buffer
+                                     :x (+ 1 *x-margin*)
+                                     :y (+ 1 *y-margin*)
+                                     :width width
+                                     :height height
+                                     :use-border t)))
+    (list peek-window)))
+
+(defun display (collector &key (minor-mode 'squaremenu-mode))
+  (when (boundp '*peek-window*)
+    (delete-window *peek-window*))
+
+  (destructuring-bind (peek-window)
+      (make-square-window (collector-buffer collector))
+
+    (unless (boundp '*parent-window*)
+      (setf *parent-window* (current-window)))
+
+    (setf *peek-window* peek-window)
+
+    (setf (current-window) peek-window)
+
+    (funcall minor-mode t)
+    ;; aka:
+    ;; (squaremenu-mode t)
+
+    (start-move-point (buffer-point (collector-buffer collector)))
+    (print "do display")))
+
+(defun make-squaremenu-buffer (&key (name "*squaremenu*"))
+  "Get or create a buffer of name NAME. By default, use a `*squaremenu*' buffer.
+  This is where we will display legit information (status…)."
+  (let ((buffer (make-buffer name
+                             :temporary t
+                             :enable-undo-p t
+                             :directory (uiop:getcwd))))
+    (setf (variable-value 'line-wrap :buffer buffer) nil)
+    buffer))
+
+(defun call-with-collecting-sources (function &key read-only buffer (minor-mode 'squaremenu-mode))
+  "Initialize variables to display things on a legit buffer.
+
+  BUFFER: either :status or :commits-log.
+  READ-ONLY: boolean.
+  MINOR-MODE: the minor mode to activate after we displayed things in the buffer. Defaults to the main squaremenu-mode. The mode is activated with:
+
+    (squaremenu-mode t)
+  or
+    (funcall minor-mode t)"
+  (let* ((*collector* (make-instance 'collector
+                                     :buffer
+                                     (make-squaremenu-buffer
+                                      :name
+                                      (case buffer
+                                        (:status "*squaremenu*")
+                                        (:commits-log "*legit-commits-log*")
+                                        (t (error "Unknown buffer name to display legit data: ~a" buffer))))))
+         (point (buffer-point (collector-buffer *collector*))))
+    (declare (ignorable point))
+    (funcall function *collector*)
+    (when read-only
+      (setf (buffer-read-only-p (collector-buffer *collector*)) t))
+      (display *collector* :minor-mode minor-mode)))
+
+(defmacro with-collecting-sources ((collector &key (buffer :status)
+                                                (read-only t)
+                                                (minor-mode 'squaremenu-mode))
+                                   &body body)
+  "Top-level macro that prepares a buffer to print stuff on and activates a minor-mode.
+
+  Then see `with-appending-source' and `collector-insert'."
+  `(call-with-collecting-sources (lambda (,collector)
+                                   (declare (ignorable ,collector))
+                                   ,@body)
+                                 :buffer ,buffer
+                                 :minor-mode ,minor-mode
+                                 :read-only ,read-only))
+
+(defun call-with-appending-source (insert-function
+                                   move-function
+                                   visit-file-function)
+  (declare (ignorable visit-file-function))
+  (let ((point (buffer-point (collector-buffer *collector*))))
+    (with-point ((start point))
+      (funcall insert-function point)
+      (unless (start-line-p point)
+        (insert-string point (string #\newline) :read-only t))
+      (set-move-function start point move-function)
+    (incf (collector-count *collector*)))))
+
+(defmacro with-appending-source ((point &key move-function
+                                             visit-file-function
+                                          ) &body body)
+  "Macro to use inside `with-collecting-sources' to print stuff.
+
+  Save the lambda functions :move-function etc to their corresponding string properties.
+
+  A keybinding is associated to these functions.
+  They will dig up the lambda functions associated with these markers and run them.
+
+  Devel note 2024: the key arguments move-function, visit-file-function etc
+  are now badly named. They should represent a function tied to an action:
+  - what to do when the point moves on this line (this is currently move-function to show diffs)
+  - what to do on Enter (this is currently visit-file-function)
+  - what to do on the `s` keybinding (currently stage-function)
+  etc
+
+  Not everything represented on legit status represents a file.
+  We now use :visit-file-function and :stage-function to have actions on stashes."
+  `(call-with-appending-source (lambda (,point) ,@body)
+                               ,move-function
+                               ,visit-file-function))
+
+(defun collector-insert (s &key (newline t) header)
+  (let ((point (buffer-point (collector-buffer *collector*))))
+    (with-point ((start point))
+      (character-offset start 1)
+      (insert-string point s :read-only t)
+      (when header
+        (put-text-property start point :header-marker t))
+      (when newline
+        (insert-string point (string #\newline) :read-only t)))))
+
+;;;
+(define-attribute match-line-attribute
+  (t :background :base02))
+
+(defmethod execute :after ((mode squaremenu-mode) command argument)
+  "After a command is run in this mode, apply an effect.
+
+  In the case of `squaremenu-mode', it is run after `squaremenu-next',
+  in order to show the file content on the right window.
+
+  The method is to subclass for all legit modes."
+  (when (eq (current-window) *peek-window*)
+    (print "do execute")))
+
+(defun highlight-matched-line (point)
+  (let ((overlay (make-line-overlay point 'highlight)))
+    (start-timer (make-timer (lambda ()
+                               (delete-overlay overlay))
+                             :name "highlight-matched-line")
+                 300)))
+
+
+(define-command squaremenu-select () ()
+  "Run the action stored in the :visit-file-function marker. Bound to Enter.
+
+  By default, this function works on files:
+  - execute the lambda function from the marker,
+  - expect its return value is a file name
+  - and visit the file, in the context of the current VCS.
+
+  It is possible to run actions not tied to files, for example do
+  something when pressing Enter on a line representing a commit stash.
+  The lambda function needs to return nil or (values)."
+  (print "select something"))
+
+(define-command squaremenu-next () ()
+  "Find the next line with a :move-marker text property.
+
+  After finding it, our :after method of `execute' is run, to apply an effect, showing the new diff on the right."
+  (next-move-point (current-point)))
+
+(define-command squaremenu-next-header () ()
+  (next-header-point (current-point)))
+
+(define-command squaremenu-previous-header () ()
+  (previous-header-point (current-point)))
+
+(define-command squaremenu-previous () ()
+  (previous-move-point (current-point)))
+
+(defun %squaremenu-quit ()
+  "Delete the two side windows."
+  (setf (current-window) *parent-window*)
+  (start-timer
+   (make-idle-timer (lambda ()
+                      (delete-window *peek-window*)))
+   0))
+
+(define-command squaremenu-quit () ()
+  "Quit"
+  (%squaremenu-quit))
+
+
+
+;;;
+(defvar *highlight-overlays* '())
+
+(defun set-highlight-overlay (point)
+  (let ((overlay (make-line-overlay point (ensure-attribute 'match-line-attribute))))
+    (push overlay *highlight-overlays*)
+    (setf (buffer-value (point-buffer point) 'highlight-overlay) overlay)))
+
+(defun get-highlight-overlay (point)
+  (buffer-value (point-buffer point) 'highlight-overlay))
+
+(defun update-highlight-overlay (point)
+  (let ((overlay (get-highlight-overlay point)))
+    (cond (overlay
+           (move-point (overlay-start overlay) point)
+           (move-point (overlay-end overlay) point))
+          (t
+           (set-highlight-overlay point)))))
+
+(defun finalize-highlight-overlays ()
+  (dolist (overlay *highlight-overlays*)
+    (buffer-unbound (overlay-buffer overlay) 'highlight-overlay)
+    (delete-overlay overlay))
+  (setf *highlight-overlays* '()))
+
+(define-command squaremenu-test () ()
+  (with-collecting-sources (collector :read-only nil
+                                      :minor-mode 'squaremenu-mode)
+        ;; (if we don't specify the minor-mode, the macro arguments's default value will not be found)
+        ;;
+        ;; Header: current branch.
+        (collector-insert (format nil "menu?" ) :header t)
+
+        (add-hook (variable-value 'after-change-functions :buffer (collector-buffer collector))
+                  'change-grep-buffer)))
