@@ -1,5 +1,11 @@
 (uiop:define-package :squaremenu
-    (:use :cl :lem))
+    (:use :cl :lem)
+  (:documentation "Goal: display a window on top of the others,
+  create parameters to display inside it,
+  define keybindings that allow to change the parameters' value."))
+
+;;; After loading this file,
+;;; create test variables (see define-toggle-command for *a* and *b*).
 
 (in-package :squaremenu)
 
@@ -288,6 +294,7 @@
 
 (defun %squaremenu-quit ()
   "Delete the two side windows."
+  ;; Shall we delete keybindings?
   (setf (current-window) *parent-window*)
   (start-timer
    (make-idle-timer (lambda ()
@@ -297,7 +304,7 @@
 (define-command squaremenu-quit () ()
   "Quit"
   (%squaremenu-quit)
-  (message (format nil "menu values? ~s" (list *a*))))
+  (message (apply 'format nil "menu values? a is ~s, b is ~s" (%show-debug-values))))
 
 
 ;;;
@@ -334,9 +341,6 @@
     (with-appending-source (point)
       (insert-string point "hello a"))))
 
-(define-key *squaremenu-keymap* "a" 'print-text)
-
-
 (defclass parameter ()
   ((name :initarg :name :initform nil :accessor parameter-name)
    (variable :initarg :variable :initform nil :accessor parameter-variable)
@@ -345,7 +349,11 @@
    (command :initarg :command :initform nil :accessor parameter-command)
    (docstring :initarg :docstring :initform "" :accessor parameter-docstring)))
 
-;; (defclass-std:print-object/std parameter)
+#++
+(defclass-std:print-object/std parameter)
+
+(defun make-parameter (&rest rest)
+  (apply 'make-instance 'parameter rest))
 
 (defparameter *a* nil)
 (defparameter *my-a-parameter*
@@ -356,6 +364,12 @@
                   :command :toggle
                   :docstring "Set a if you want to test the menu and update the screen."))
 
+#++
+(define-toggle-defun *my-a-parameter*)
+#++
+(define-toggle-command *my-a-parameter*)
+
+
 (defparameter *b* nil)
 (defparameter *my-b-parameter*
   (make-instance 'parameter
@@ -365,6 +379,14 @@
                   :command :toggle
                   :docstring "Set b too."))
 
+#++
+(define-toggle-defun *my-b-parameter*)
+#++
+(define-toggle-command *my-b-parameter*)
+
+(defun %show-debug-values ()
+  (list *a* *b*))
+
 (defparameter *menu-parameters* (list *my-a-parameter* *my-b-parameter*)
   "Associate a good-looking name to a parameter and a keybinding to change it.")
 
@@ -373,29 +395,35 @@
         (value (eval (parameter-variable param))))
     (eval `(setf ,var (not ,value)))))
 
-(define-command %squaremenu-toggle-parameter () ()
-  (toggle-parameter *my-a-parameter*)
-  ;; redraw everything
-  (create-menu))
+(defmacro define-toggle-defun (param)
+  "Define a defun-<param name> to test toggling of values."
+  (let ((fn-name (alexandria:symbolicate "TOGGLE-" (str:upcase
+                                                    (parameter-name
+                                                     (eval param))))))
+    `(defun ,fn-name ()
+       (toggle-parameter ,param))))
 
-(defmacro define-toggle-command (name param)
-  (let ((fn-name (alexandria:symbolicate "%SQUAREMENU-TOGGLE-" name)))
-    `(define-command ,fn-name () ()
-       (toggle-parameter ,param)
-       (create-menu))))
+(defmacro define-toggle-command (param)
+  "Define a command and a keybinding after this parameter name,
+  that toggle this parameter's variable value,
+  so that we can toggle the values from the menu with keybindings."
+  (let ((fn-name (alexandria:symbolicate "%SQUAREMENU-TOGGLE-" (str:upcase
+                                                                (parameter-name
+                                                                 (eval param))))))
+    `(progn
+       (define-command ,fn-name () ()
+         (toggle-parameter ,param)
+         ;; re-draw everything.
+         (create-menu))
+
+       (define-key *squaremenu-keymap* (parameter-keybinding ,param) ',fn-name)
+       )))
 
 (defun create-menu (&key
                       (title "test menu")
                       intro
                       (outro "Quit with (q).")
                       (parameters *menu-parameters*))
-
-  ;; Define key bindings.
-  (loop for param in parameters
-        if (equal :toggle (parameter-command param))
-          do (define-key *squaremenu-keymap* (parameter-keybinding param) '%squaremenu-toggle-parameter)
-        else
-          do (define-key *squaremenu-keymap* (parameter-keybinding param) ))
 
   ;; Write content.
   (with-collecting-sources (collector :read-only nil
