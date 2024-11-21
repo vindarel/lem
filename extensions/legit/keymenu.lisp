@@ -132,21 +132,23 @@
                                      :width width
                                      :height height
                                      :use-border t)))
-    (list peek-window)))
+    peek-window))
 
 (defun display (collector &key (minor-mode 'keymenu-mode))
   (when (boundp '*peek-window*)
     (delete-window *peek-window*))
 
-  (destructuring-bind (peek-window)
-      (make-square-window (collector-buffer collector))
+  (let ((peek-window (make-square-window (collector-buffer collector))))
 
     (unless (boundp '*parent-window*)
-      (setf *parent-window* (current-window)))
+      (setf *parent-window* (current-window))
+      (message (format nil "--- set parenth window: ~a" *parent-window*)))
 
     (setf *peek-window* peek-window)
 
-    (setf (current-window) peek-window)
+    (if (boundp 'peek-window)
+        (setf (current-window) peek-window)
+        (format t "--- display: peek-window is unbound"))
 
     (funcall minor-mode t)
     ;; aka:
@@ -302,7 +304,9 @@
 (defun %keymenu-quit ()
   "Delete the two side windows."
   ;; Shall we delete keybindings?
-  (setf (current-window) *parent-window*)
+  (if (boundp '*parent-window*)
+    (setf (current-window) *parent-window*)
+    (format t "-- *parent-window* is not bound"))
   (start-timer
    (make-idle-timer (lambda ()
                       (delete-window *peek-window*)))
@@ -464,3 +468,6 @@
 
 (define-command keymenu-test () ()
   (create-menu))
+
+(unless (find :lem-keymenu *features*)
+  (push :lem-keymenu *features*))
