@@ -284,6 +284,8 @@
 (define-command squaremenu-previous () ()
   (previous-move-point (current-point)))
 
+(defparameter *menu-parameters* (list 'a :a))
+
 (defun %squaremenu-quit ()
   "Delete the two side windows."
   (setf (current-window) *parent-window*)
@@ -294,8 +296,8 @@
 
 (define-command squaremenu-quit () ()
   "Quit"
-  (%squaremenu-quit))
-
+  (%squaremenu-quit)
+  (message (format nil "menu values? ~s" (list *a*))))
 
 
 ;;;
@@ -323,13 +325,99 @@
     (delete-overlay overlay))
   (setf *highlight-overlays* '()))
 
-(define-command squaremenu-test () ()
+;;;
+;;; Now use all of the above to create a top-level squaremenu.
+;;;
+
+(define-command print-text () ()
+  (with-collecting-sources (collector :read-only nil :minor-mode 'squaremenu-mode)
+    (with-appending-source (point)
+      (insert-string point "hello a"))))
+
+(define-key *squaremenu-keymap* "a" 'print-text)
+
+
+(defclass parameter ()
+  ((name :initarg :name :initform nil :accessor parameter-name)
+   (variable :initarg :variable :initform nil :accessor parameter-variable)
+   ;; (default-value :initarg :default-value :initform nil :accessor parameter-default-value)
+   (keybinding :initarg :keybinding :initform nil :accessor parameter-keybinding)
+   (command :initarg :command :initform nil :accessor parameter-command)
+   (docstring :initarg :docstring :initform "" :accessor parameter-docstring)))
+
+;; (defclass-std:print-object/std parameter)
+
+(defparameter *a* nil)
+(defparameter *my-a-parameter*
+  (make-instance 'parameter
+                  :name "a"
+                  :variable '*a*
+                  :keybinding "C-a"
+                  :command :toggle
+                  :docstring "Set a if you want to test the menu and update the screen."))
+
+(defparameter *b* nil)
+(defparameter *my-b-parameter*
+  (make-instance 'parameter
+                  :name "b"
+                  :variable '*b*
+                  :keybinding "C-b"
+                  :command :toggle
+                  :docstring "Set b too."))
+
+(defparameter *menu-parameters* (list *my-a-parameter* *my-b-parameter*)
+  "Associate a good-looking name to a parameter and a keybinding to change it.")
+
+(defun toggle-parameter (param)
+  (let ((var (parameter-variable param))
+        (value (eval (parameter-variable param))))
+    (eval `(setf ,var (not ,value)))))
+
+(define-command %squaremenu-toggle-parameter () ()
+  (toggle-parameter *my-a-parameter*)
+  ;; redraw everything
+  (create-menu))
+
+(defmacro define-toggle-command (name param)
+  (let ((fn-name (alexandria:symbolicate "%SQUAREMENU-TOGGLE-" name)))
+    `(define-command ,fn-name () ()
+       (toggle-parameter ,param)
+       (create-menu))))
+
+(defun create-menu (&key
+                      (title "test menu")
+                      intro
+                      (outro "Quit with (q).")
+                      (parameters *menu-parameters*))
+
+  ;; Define key bindings.
+  (loop for param in parameters
+        if (equal :toggle (parameter-command param))
+          do (define-key *squaremenu-keymap* (parameter-keybinding param) '%squaremenu-toggle-parameter)
+        else
+          do (define-key *squaremenu-keymap* (parameter-keybinding param) ))
+
+  ;; Write content.
   (with-collecting-sources (collector :read-only nil
                                       :minor-mode 'squaremenu-mode)
-        ;; (if we don't specify the minor-mode, the macro arguments's default value will not be found)
-        ;;
-        ;; Header: current branch.
-        (collector-insert (format nil "menu?" ) :header t)
+    ;; (if we don't specify the minor-mode, the macro arguments's default value will not be found)
+    (collector-insert title :header t)
+    (when intro
+      (collector-insert (format nil "~&~%~a" intro)))
+    (loop for param in parameters
+          do (collector-insert
+              (format nil "~&~%~a: ~a (~a)"
+                      (parameter-name param)
+                      (eval (parameter-variable param))
+                      (parameter-keybinding param)))
+             (when (parameter-docstring param)
+               (collector-insert (format nil "~&~a" (parameter-docstring param)))))
 
-        (add-hook (variable-value 'after-change-functions :buffer (collector-buffer collector))
-                  'change-grep-buffer)))
+    (when outro
+      (collector-insert (format nil "~&~%~a" outro)))
+    ))
+
+(define-key *global-keymap* "C-x m" 'squaremenu-test)
+
+(define-command squaremenu-test () ()
+  (create-menu))
