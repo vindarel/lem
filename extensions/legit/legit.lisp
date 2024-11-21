@@ -467,6 +467,14 @@ Currently Git-only. Concretely, this calls Git with the -w option.")
   # Lines starting with '#' will be discarded, and an empty message does nothing.~%~
   # Validate with C-c C-c, quit with M-q or C-c C-k")
 
+;; We can't have the parameter definition and use in macro in the same file.
+#+lem-keymenu
+(lem/keymenu:define-toggle-command *commit-all-unstaged-and-deleted/keyparamater*)
+
+#+lem-keymenu
+(defparameter *commit-options*
+  (list *commit-all-unstaged-and-deleted/keyparamater*))
+
 (define-command legit-commit () ()
   "Write a commit message in its dedicated buffer.
 
@@ -483,6 +491,11 @@ Currently Git-only. Concretely, this calls Git with the -w option.")
   ;; So we go with a simpler, cross-platform and pure Lem/Lisp workflow:
   ;; - create a Lem buffer, add some help text
   ;; - on validation, check ourselves that the message isn't void, extract other information (signature…) and run the commit, with the -m argument.
+
+  #+lem-keymenu
+  (lem/keymenu::create-menu :title "Commit" :parameters *commit-options*)
+  #+lem-keymenu
+  (return-from legit-commit)
 
   (let ((buffer (make-buffer "*legit-commit*")))
     (setf (buffer-directory buffer) (buffer-directory))

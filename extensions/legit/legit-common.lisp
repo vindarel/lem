@@ -74,3 +74,17 @@
 
   If no Git directory (or other supported VCS system) are found, message the user."
   `(call-with-current-project (lambda (,vcs-bind) ,@body)))
+
+
+#+lem-keymenu
+(defparameter *commit-all-unstaged-and-deleted* nil
+  "Commit all unstaged and deleted files")
+
+#+lem-keymenu
+(defparameter *commit-all-unstaged-and-deleted/keyparamater*
+  (make-instance 'lem/keymenu:parameter
+                       :variable '*commit-all-unstaged-and-deleted*
+                       :name "all"
+                       :command :toggle
+                       :docstring "Stage all modified and deleted file"
+                       :keybinding "C-a"))

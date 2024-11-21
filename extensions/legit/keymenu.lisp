@@ -2,7 +2,10 @@
     (:use :cl :lem)
   (:documentation "Goal: display a window on top of the others,
   create parameters to display inside it,
-  define keybindings that allow to change the parameters' value."))
+  define keybindings that allow to change the parameters' value.")
+  (:export
+   #:parameter
+   #:define-toggle-command))
 
 ;;; After loading this file,
 ;;; create test variables (see define-toggle-command for *a* and *b*).
@@ -20,6 +23,9 @@
 
 (defvar *menu-parameters* (list)
   "List of parameter objects. Top level variable for testing")
+
+(defvar *menu-title* ""
+  "Menu title. Top level, to be overriden by each call to the menu.")
 
 ;; commands
 ;; (define-key *keymenu-keymap* "s" (lambda () (message "pressed s")))
@@ -388,6 +394,7 @@
 #++
 (define-toggle-command *my-b-parameter*)
 
+#++
 (defparameter *menu-parameters* (list *my-a-parameter* *my-b-parameter*)
   "Associate a good-looking name to a parameter and a keybinding to change it.")
 
@@ -421,10 +428,17 @@
        )))
 
 (defun create-menu (&key
-                      (title "test menu")
+                      (title *menu-title* title-p)
                       intro
                       (outro "Quit with (q).")
-                      (parameters *menu-parameters*))
+                      (parameters *menu-parameters* parameters-p))
+
+  ;; create-menu is called again after each keybinding…
+  ;; we'd need closures or something.
+  (when parameters-p
+    (setf *menu-parameters* parameters))
+  (when title-p
+    (setf *menu-title* title))
 
   ;; Write content.
   (with-collecting-sources (collector :read-only nil
