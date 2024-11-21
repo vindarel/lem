@@ -18,6 +18,9 @@
 (define-key *keymenu-keymap* "q" 'keymenu-quit)
 (define-key *keymenu-keymap* "C-c C-k" 'keymenu-quit)
 
+(defvar *menu-parameters* (list)
+  "List of parameter objects. Top level variable for testing")
+
 ;; commands
 ;; (define-key *keymenu-keymap* "s" (lambda () (message "pressed s")))
 
@@ -290,8 +293,6 @@
 (define-command keymenu-previous () ()
   (previous-move-point (current-point)))
 
-(defparameter *menu-parameters* (list 'a :a))
-
 (defun %keymenu-quit ()
   "Delete the two side windows."
   ;; Shall we delete keybindings?
@@ -300,6 +301,9 @@
    (make-idle-timer (lambda ()
                       (delete-window *peek-window*)))
    0))
+
+(defun %show-debug-values ()
+  (list :a :b))
 
 (define-command keymenu-quit () ()
   "Quit"
@@ -383,9 +387,6 @@
 (define-toggle-defun *my-b-parameter*)
 #++
 (define-toggle-command *my-b-parameter*)
-
-(defun %show-debug-values ()
-  (list *a* *b*))
 
 (defparameter *menu-parameters* (list *my-a-parameter* *my-b-parameter*)
   "Associate a good-looking name to a parameter and a keybinding to change it.")
