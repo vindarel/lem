@@ -370,7 +370,7 @@ Currently Git-only. Concretely, this calls Git with the -w option.")
 
          patch)))))
 
-(defun run-function (fn &key message)
+(defun run-function (fn &key message on-success)
   "Run this function and show `message` and standard output
   to the user on success as a tooltip message,
   or show the external command's error output on a popup window.
@@ -389,7 +389,9 @@ Currently Git-only. Concretely, this calls Git with the -w option.")
       ((zerop exit-code)
        (let ((msg (str:join #\newline (remove-if #'null (list message output)))))
          (when (str:non-blank-string-p msg)
-           (message msg))))
+           (message msg)))
+       (when on-success
+         (funcall on-success)))
       (t
        (when error-output
          (pop-up-message error-output))))))
