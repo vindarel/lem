@@ -5,6 +5,12 @@
   (:lock t))
 (in-package :lem-lisp-syntax.syntax-table)
 
+(defparameter *symbol-chars* '(#\+ #\- #\< #\> #\/ #\* #\& #\= #\.
+                               #\? #\_ #\! #\$ #\% #\: #\@ #\[ #\]
+                               #\^ #\{ #\} #\~ #\# #\|))
+
+(defparameter *system-designator-chars* (list* #\" *symbol-chars*))
+
 (flet ((f (c1 c2 step-fn)
          (when c1
            (when (and (member c1 '(#\#))
@@ -27,8 +33,8 @@
 (defvar *syntax-table*
   (make-syntax-table
    :space-chars '(#\space #\tab #\newline #\page)
-   :symbol-chars '(#\+ #\- #\< #\> #\/ #\* #\& #\= #\. #\? #\_ #\! #\$ #\% #\: #\@ #\[ #\]
-                   #\^ #\{ #\} #\~ #\# #\|)
+   :symbol-chars *symbol-chars*
+   :system-designator-chars *system-designator-chars*
    :paren-pairs '((#\( . #\))
                   (#\[ . #\])
                   (#\{ . #\}))

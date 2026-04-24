@@ -201,6 +201,7 @@
    :syntax-word-char-p
    :syntax-space-char-p
    :syntax-symbol-char-p
+   :syntax-system-designator-char-p
    :syntax-open-paren-char-p
    :syntax-closed-paren-char-p
    :syntax-string-quote-char-p

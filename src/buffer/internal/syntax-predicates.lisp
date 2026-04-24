@@ -26,6 +26,10 @@
   (or (syntax-word-char-p c)
       (member c (syntax-table-symbol-chars (current-syntax)))))
 
+(defun syntax-system-designator-char-p (c)
+  (or (syntax-word-char-p c)
+      (member c (syntax-table-system-designator-chars (current-syntax)))))
+
 (defun syntax-open-paren-char-p (c)
   (assoc c (syntax-table-paren-pairs (current-syntax))))
 

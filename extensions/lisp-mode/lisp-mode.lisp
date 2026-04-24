@@ -774,9 +774,9 @@
                                :package-name (buffer-package (current-buffer))
                                :evaluate t))))
 
-(defun form-string-at-point ()
+(defun form-string-at-point (&key (syntax-char-fn #'syntax-symbol-char-p))
   (with-point ((point (current-point)))
-    (skip-chars-backward point #'syntax-symbol-char-p)
+    (skip-chars-backward point syntax-char-fn)
     (with-point ((start point)
                  (end point))
       (form-offset end 1)

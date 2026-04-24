@@ -14,6 +14,11 @@
     ;;   ref. https://github.com/roswell/roswell/blob/5b267381a66d36a514e2eee7283543f828541a63/lisp/util-install-quicklisp.lisp#L146
     (set (intern (string :*local-project-directories*) :ql) local-project-dir)))
 
+
+;; Load deploy first to load the "lem" system definition manually:
+#+(or)
+(ql:quickload "deploy")
+
 (defsystem "lem/core"
   :depends-on ("iterate"
                "closer-mop"

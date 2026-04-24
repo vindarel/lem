@@ -3,6 +3,7 @@
   (:export :make-syntax-table
            :syntax-table-space-chars
            :syntax-table-symbol-chars
+           :syntax-table-system-designator-chars
            :syntax-table-paren-pairs
            :syntax-table-string-quote-chars
            :syntax-table-escape-chars
@@ -22,6 +23,7 @@
 (defstruct syntax-table
   (space-chars '(#\space #\tab #\newline))
   (symbol-chars '(#\_))
+  system-designator-chars
   (paren-pairs '((#\( . #\))
                  (#\[ . #\])
                  (#\{ . #\})))
