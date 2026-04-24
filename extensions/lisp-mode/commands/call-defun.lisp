@@ -49,11 +49,14 @@
                       (values (symbol-replize arg-name package-name)
                               :defun)))))
 
-            ;; Find a system name as a :keyword or a "string".
-            ((string-equal operator-name "defsystem")
+            ;; <2026-04-24> bon c'est n'importe quoi
+            ;; ça complete ql:quickload "author" etc.
+            ;; ça me semblait marcher…
+            ((member operator-name '("defsystem" "asdf:defsystem") :test #'equalp)
              (skip-whitespace-forward point)
              (form-offset point 2)
              (let ((arg-name (lem-lisp-mode/internal::form-string-at-point
+                              ;; Find a system name as a :keyword or a "string".
                               :syntax-char-fn #'syntax-system-designator-char-p)))
                (when (str:starts-with-p ":" arg-name)
                  (setf arg-name (subseq arg-name 1)))
@@ -61,6 +64,7 @@
                  (setf arg-name (str:trim arg-name :char-bag (list #\"))))
                (values arg-name
                        :defsystem)))
+
              (t
               (message "Unknown toplevel form: ~a" operator-name))
             )
